@@ -14,13 +14,11 @@ local uv = vim.uv or vim.loop
 ---@type string|fun():string name of the test runner
 M.test_runner = nil
 
-
 --- Function to resolve path to python to use for program or test execution.
 --- By default the `VIRTUAL_ENV` and `CONDA_PREFIX` environment variables are
 --- used if present.
 ---@type nil|fun():nil|string name of the test runner
 M.resolve_python = nil
-
 
 --- Table to register test runners.
 --- Built-in are test runners for unittest, pytest and django.
@@ -29,21 +27,18 @@ M.resolve_python = nil
 ---@type table<string, dap-python.TestRunner>
 M.test_runners = {}
 
-
 local is_windows = function()
   return vim.fn.has("win32") == 1
 end
-
 
 ---@param venv string
 ---@return string
 local function python_exe(venv)
   if is_windows() then
-    return venv .. '\\Scripts\\python.exe'
+    return venv .. "\\Scripts\\python.exe"
   end
-  return venv .. '/bin/python'
+  return venv .. "/bin/python"
 end
-
 
 local function roots()
   return coroutine.wrap(function()
@@ -64,7 +59,6 @@ local function roots()
     end
   end)
 end
-
 
 local function default_runner()
   for root in roots() do
@@ -89,10 +83,9 @@ local function default_runner()
   return "unittest"
 end
 
-
 ---@return string|nil
 local get_python_path = function()
-  local venv_path = os.getenv('VIRTUAL_ENV')
+  local venv_path = os.getenv("VIRTUAL_ENV")
   if venv_path then
     return python_exe(venv_path)
   end
@@ -100,9 +93,9 @@ local get_python_path = function()
   venv_path = os.getenv("CONDA_PREFIX")
   if venv_path then
     if is_windows() then
-      return venv_path .. '\\python.exe'
+      return venv_path .. "\\python.exe"
     end
-    return venv_path .. '/bin/python'
+    return venv_path .. "/bin/python"
   end
 
   if M.resolve_python then
@@ -111,7 +104,7 @@ local get_python_path = function()
   end
 
   for root in roots() do
-    for _, folder in ipairs({"venv", ".venv", "env", ".env"}) do
+    for _, folder in ipairs({ "venv", ".venv", "env", ".env" }) do
       local path = root .. "/" .. folder
       local stat = uv.fs_stat(path)
       if stat and stat.type == "directory" then
@@ -123,7 +116,6 @@ local get_python_path = function()
   return nil
 end
 
-
 ---@param path string
 ---@return table<string, any>?
 local function parse_envfile(path)
@@ -134,14 +126,13 @@ local function parse_envfile(path)
   local env = {}
   for line in f:lines() do
     local key, value = line:match("^([^=]+)=(.+)")
-    if key and value and key:sub(1, 1) ~= '#' then
+    if key and value and key:sub(1, 1) ~= "#" then
       env[key] = value:gsub("^'(.*)'$", "%1"):gsub('^"(.*)"$', "%1")
     end
   end
   f:close()
   return env
 end
-
 
 ---@param config dap-python.Config|dap-python.LaunchConfig
 ---@param on_config fun(config: dap-python.Config)
@@ -154,42 +145,38 @@ local enrich_config = function(config, on_config)
   config.envFile = nil
   local env = parse_envfile(envfile)
   if env then
-    config.env = vim.tbl_deep_extend('force', config.env or {}, env)
+    config.env = vim.tbl_deep_extend("force", config.env or {}, env)
   end
   on_config(config)
 end
 
-
 local default_setup_opts = {
   include_configs = true,
-  console = 'integratedTerminal',
+  console = "integratedTerminal",
   pythonPath = nil,
 }
 
 local default_test_opts = {
-  console = 'integratedTerminal'
+  console = "integratedTerminal",
 }
 
-
 local function load_dap()
-  local ok, dap = pcall(require, 'dap')
-  assert(ok, 'nvim-dap is required to use dap-python')
+  local ok, dap = pcall(require, "dap")
+  assert(ok, "nvim-dap is required to use dap-python")
   return dap
 end
 
-
 local function get_module_path()
   if is_windows() then
-    return vim.fn.expand('%:.:r:gs?\\?.?')
+    return vim.fn.expand("%:.:r:gs?\\?.?")
   else
-    return vim.fn.expand('%:.:r:gs?/?.?')
+    return vim.fn.expand("%:.:r:gs?/?.?")
   end
 end
 
-
 ---@return string[]
 local function flatten(...)
-  local values = {...}
+  local values = { ... }
   if vim.iter then
     return vim.iter(values):flatten(2):totable()
   end
@@ -197,39 +184,35 @@ local function flatten(...)
   return vim.tbl_flatten(values)
 end
 
-
 ---@private
 ---@param classnames string[]|string
 ---@param methodname string?
 function M.test_runners.unittest(classnames, methodname)
-  local test_path = table.concat(flatten(get_module_path(), classnames, methodname), '.')
-  local args = {'-v', test_path}
-  return 'unittest', args
+  local test_path = table.concat(flatten(get_module_path(), classnames, methodname), ".")
+  local args = { "-v", test_path }
+  return "unittest", args
 end
-
 
 ---@private
 ---@param classnames string[]|string
 ---@param methodname string?
 function M.test_runners.pytest(classnames, methodname)
-  local path = vim.fn.expand('%:p')
-  local test_path = table.concat(flatten({path, classnames, methodname}), '::')
+  local path = vim.fn.expand("%:p")
+  local test_path = table.concat(flatten({ path, classnames, methodname }), "::")
   -- -s "allow output to stdout of test"
-  local args = {'-s', test_path}
-  return 'pytest', args
+  local args = { "-s", test_path }
+  return "pytest", args
 end
-
 
 ---@private
 ---@param classnames string[]|string
 ---@param methodname string?
 function M.test_runners.django(classnames, methodname)
   local path = get_module_path()
-  local test_path = table.concat(flatten({path, classnames, methodname}), '.')
-  local args = {'test', test_path}
-  return 'django', args
+  local test_path = table.concat(flatten({ path, classnames, methodname }), ".")
+  local args = { "test", test_path }
+  return "django", args
 end
-
 
 --- Register the python debug adapter
 ---
@@ -238,24 +221,24 @@ end
 ---@param opts? dap-python.setup.opts See |dap-python.setup.opts|
 function M.setup(python_path, opts)
   local dap = load_dap()
-  python_path = python_path and vim.fn.expand(vim.fn.trim(python_path), true) or 'python3'
-  opts = vim.tbl_extend('keep', opts or {}, default_setup_opts)
+  python_path = python_path and vim.fn.expand(vim.fn.trim(python_path), true) or "python3"
+  opts = vim.tbl_extend("keep", opts or {}, default_setup_opts)
   dap.adapters.python = function(cb, config)
-    if config.request == 'attach' then
+    if config.request == "attach" then
       ---@diagnostic disable-next-line: undefined-field
       local port = (config.connect or config).port
       ---@diagnostic disable-next-line: undefined-field
-      local host = (config.connect or config).host or '127.0.0.1'
+      local host = (config.connect or config).host or "127.0.0.1"
 
       ---@type dap.ServerAdapter
       local adapter = {
-        type = 'server',
-        port = assert(port, '`connect.port` is required for a python `attach` configuration'),
+        type = "server",
+        port = assert(port, "`connect.port` is required for a python `attach` configuration"),
         host = host,
         enrich_config = enrich_config,
         options = {
-          source_filetype = 'python',
-        }
+          source_filetype = "python",
+        },
       }
       cb(adapter)
     else
@@ -266,11 +249,11 @@ function M.setup(python_path, opts)
         adapter = {
           type = "executable",
           command = python_path,
-          args = {"run", "--with", "debugpy", "python", "-m", "debugpy.adapter"},
+          args = { "run", "--with", "debugpy", "python", "-m", "debugpy.adapter" },
           enrich_config = enrich_config,
           options = {
-            source_filetype = "python"
-          }
+            source_filetype = "python",
+          },
         }
       elseif basename == "debugpy-adapter" then
         adapter = {
@@ -279,18 +262,18 @@ function M.setup(python_path, opts)
           args = {},
           enrich_config = enrich_config,
           options = {
-            source_filetype = "python"
-          }
+            source_filetype = "python",
+          },
         }
       else
         adapter = {
           type = "executable",
           command = python_path,
-          args = {"-m", "debugpy.adapter"};
+          args = { "-m", "debugpy.adapter" },
           enrich_config = enrich_config,
           options = {
-            source_filetype = "python"
-          }
+            source_filetype = "python",
+          },
         }
       end
       cb(adapter)
@@ -300,52 +283,57 @@ function M.setup(python_path, opts)
 
   -- nvim-dap logs warnings for unhandled custom events
   -- Mute it
-  dap.listeners.before["event_debugpySockets"]["dap-python"] = function()
-  end
+  dap.listeners.before["event_debugpySockets"]["dap-python"] = function() end
 
   if opts.include_configs then
     local configs = dap.configurations.python or {}
     dap.configurations.python = configs
     table.insert(configs, {
-      type = 'python';
-      request = 'launch';
-      name = 'file';
-      program = '${file}';
-      console = opts.console;
+      type = "python",
+      request = "launch",
+      name = "file",
+      program = "${file}",
+      console = opts.console,
       pythonPath = opts.pythonPath,
     })
     table.insert(configs, {
-      type = 'python';
-      request = 'launch';
-      name = 'file:args';
-      program = '${file}';
+      type = "python",
+      request = "launch",
+      name = "file:args",
+      program = "${file}",
       args = function()
-        local args_string = vim.fn.input('Arguments: ')
+        local args_string = vim.fn.input("Arguments: ")
         local utils = require("dap.utils")
         if utils.splitstr and vim.fn.has("nvim-0.10") == 1 then
           return utils.splitstr(args_string)
         end
         return vim.split(args_string, " +")
-      end;
-      console = opts.console;
+      end,
+      console = opts.console,
       pythonPath = opts.pythonPath,
     })
     table.insert(configs, {
-      type = 'python';
-      request = 'attach';
-      name = 'attach';
+      type = "python",
+      request = "attach",
+      name = "attach2",
       connect = function()
-        local host = vim.fn.input('Host [127.0.0.1]: ')
-        host = host ~= '' and host or '127.0.0.1'
-        local port = tonumber(vim.fn.input('Port [5678]: ')) or 5678
+        local host = vim.fn.input("Host [127.0.0.1]: ")
+        host = host ~= "" and host or "127.0.0.1"
+        local port = tonumber(vim.fn.input("Port [5678]: ")) or 5678
         return { host = host, port = port }
-      end;
+      end,
+      pathMappings = {
+        {
+          localRoot = vim.fn.getcwd(), -- Wherever your Python code lives locally.
+          remoteRoot = "/app", -- Wherever your Python code lives in the container.
+        },
+      },
     })
     table.insert(configs, {
-      type = 'python',
-      request = 'launch',
-      name = 'file:doctest',
-      module = 'doctest',
+      type = "python",
+      request = "launch",
+      name = "file:doctest",
+      module = "doctest",
       args = { "${file}" },
       noDebug = true,
       console = opts.console,
@@ -353,7 +341,6 @@ function M.setup(python_path, opts)
     })
   end
 end
-
 
 local function get_node_text(node)
   if vim.treesitter.get_node_text then
@@ -367,9 +354,8 @@ local function get_node_text(node)
   if #lines == 1 then
     return (lines[1]):sub(col1 + 1, col2)
   end
-  return table.concat(lines, '\n')
+  return table.concat(lines, "\n")
 end
-
 
 --- Reverse list inline
 ---@param list any[]
@@ -380,7 +366,6 @@ local function reverse(list)
     list[i], list[opposite] = list[opposite], list[i]
   end
 end
-
 
 ---@private
 ---@param source string|integer
@@ -399,13 +384,12 @@ function M._get_nodes(source, subject, end_row)
     )
   ]]
   local lang = "python"
-  local query = (vim.treesitter.query.parse
-    and vim.treesitter.query.parse(lang, query_text)
+  local query = (
+    vim.treesitter.query.parse and vim.treesitter.query.parse(lang, query_text)
     or vim.treesitter.parse_query(lang, query_text)
   )
   local parser = (
-    type(source) == "number"
-    and vim.treesitter.get_parser(source, lang)
+    type(source) == "number" and vim.treesitter.get_parser(source, lang)
     or vim.treesitter.get_string_parser(source --[[@as string]], lang)
   )
   local trees = parser:parse()
@@ -455,7 +439,6 @@ function M._get_nodes(source, subject, end_row)
   end
 end
 
-
 ---@param classnames string[]
 ---@param methodname string?
 ---@param opts dap-python.debug_opts
@@ -466,7 +449,7 @@ local function trigger_test(classnames, methodname, opts)
   end
   local runner = M.test_runners[test_runner]
   if not runner then
-    vim.notify('Test runner `' .. test_runner .. '` not supported', vim.log.levels.WARN)
+    vim.notify("Test runner `" .. test_runner .. "` not supported", vim.log.levels.WARN)
     return
   end
   assert(type(runner) == "function", "Test runner must be a function")
@@ -474,12 +457,12 @@ local function trigger_test(classnames, methodname, opts)
   local classes = #classnames == 1 and classnames[1] or classnames
   local module, args = runner(classes, methodname)
   local config = {
-    name = table.concat(flatten(classnames, methodname), '.'),
-    type = 'python',
-    request = 'launch',
+    name = table.concat(flatten(classnames, methodname), "."),
+    type = "python",
+    request = "launch",
     module = module,
     args = args,
-    console = opts.console
+    console = opts.console,
   }
   local opts_config = opts.config or {}
   if type(opts_config) == "function" then
@@ -493,20 +476,18 @@ local function trigger_test(classnames, methodname, opts)
   load_dap().run(config)
 end
 
-
 --- Run test class above cursor
 ---@param opts? dap-python.debug_opts See |dap-python.debug_opts|
 function M.test_class(opts)
-  opts = vim.tbl_extend('keep', opts or {}, default_test_opts)
+  opts = vim.tbl_extend("keep", opts or {}, default_test_opts)
   local candidates = M._get_nodes(0, "class")
   if not candidates then
-    print('No test class found near cursor')
+    print("No test class found near cursor")
     return
   end
   local names = vim.tbl_map(get_node_text, candidates)
   trigger_test(names, nil, opts)
 end
-
 
 ---@param node TSNode
 ---@result TSNode[]
@@ -525,14 +506,13 @@ local function get_parent_classes(node)
   return result
 end
 
-
 --- Run the test method above cursor
 ---@param opts? dap-python.debug_opts See |dap-python.debug_opts|
 function M.test_method(opts)
-  opts = vim.tbl_extend('keep', opts or {}, default_test_opts)
+  opts = vim.tbl_extend("keep", opts or {}, default_test_opts)
   local functions = M._get_nodes(0, "function")
   if not functions or not functions[1] then
-    print('No test method found near cursor')
+    print("No test method found near cursor")
     return
   end
   local fn = functions[1]
@@ -540,7 +520,6 @@ function M.test_method(opts)
   local classnames = vim.tbl_map(get_node_text, parent_classes)
   trigger_test(classnames, get_node_text(fn), opts)
 end
-
 
 --- Strips extra whitespace at the start of the lines
 --
@@ -551,43 +530,41 @@ end
 local function remove_indent(lines)
   local offset = nil
   for _, line in ipairs(lines) do
-    local first_non_ws = line:find('[^%s]') or 0
+    local first_non_ws = line:find("[^%s]") or 0
     if first_non_ws >= 1 and (not offset or first_non_ws < offset) then
       offset = first_non_ws
     end
   end
   if offset > 1 then
     assert(offset)
-    return vim.tbl_map(function(x) return string.sub(x, offset) end, lines)
+    return vim.tbl_map(function(x)
+      return string.sub(x, offset)
+    end, lines)
   else
     return lines
   end
 end
 
-
 --- Debug the selected code
 ---@param opts? dap-python.debug_opts
 function M.debug_selection(opts)
-  opts = vim.tbl_extend('keep', opts or {}, default_test_opts)
-  local start_row, _ = unpack(api.nvim_buf_get_mark(0, '<'))
-  local end_row, _ = unpack(api.nvim_buf_get_mark(0, '>'))
+  opts = vim.tbl_extend("keep", opts or {}, default_test_opts)
+  local start_row, _ = unpack(api.nvim_buf_get_mark(0, "<"))
+  local end_row, _ = unpack(api.nvim_buf_get_mark(0, ">"))
   local lines = api.nvim_buf_get_lines(0, start_row - 1, end_row, false)
-  local code = table.concat(remove_indent(lines), '\n')
+  local code = table.concat(remove_indent(lines), "\n")
   local config = {
-    type = 'python',
-    request = 'launch',
+    type = "python",
+    request = "launch",
     code = code,
-    console = opts.console
+    console = opts.console,
   }
-  load_dap().run(vim.tbl_extend('force', config, opts.config or {}))
+  load_dap().run(vim.tbl_extend("force", config, opts.config or {}))
 end
-
-
 
 ---@class dap-python.PathMapping
 ---@field localRoot string
 ---@field remoteRoot string
-
 
 ---@class dap-python.Config
 ---@field django boolean|nil Enable django templates. Default is `false`
@@ -599,7 +576,6 @@ end
 ---@field redirectOutput boolean|nil Redirect output to debug console. Default is `false`
 ---@field showReturnValue boolean|nil Shows return value of function when stepping
 ---@field sudo boolean|nil Run program under elevated permissions. Default is `false`
-
 
 ---@class dap-python.LaunchConfig : dap-python.Config
 ---@field module string|nil Name of the module to debug
@@ -613,7 +589,6 @@ end
 ---@field stopOnEntry boolean|nil Stop at first line of user code.
 ---@field envFile string|nil Path to file with environment variables: Processed by nvim-dap-python and included in `env` when sent to debugpy
 
-
 ---@class dap-python.debug_opts
 ---@field console? dap-python.console
 ---@field test_runner? "unittest"|"pytest"|"django"|string name of the test runner
@@ -626,7 +601,6 @@ end
 --- Path to python interpreter. Uses interpreter from `VIRTUAL_ENV` environment
 --- variable or `python_path` by default
 ---@field pythonPath? string
-
 
 --- A function receiving classname and methodname; must return module to run and its arguments
 ---@alias dap-python.TestRunner fun(classname: string|string[], methodname: string?):string, string[]
